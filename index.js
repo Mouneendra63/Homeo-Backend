@@ -10,10 +10,7 @@ import ExcelJs from 'exceljs';
 const app = express();
 app.use(cookieParser());
 
-app.use(cors({
-    origin: "http://localhost:5173", // ✅ Not '*'
-    credentials: true
-  }));
+app.use(cors());
 
 const PORT = 3000;
 app.use(express.json());
