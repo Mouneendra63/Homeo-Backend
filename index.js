@@ -6,17 +6,69 @@ import { userValid } from './validators/user.js';
 import  cookieParser  from 'cookie-parser';
 import {reviewValid} from './validators/review.js'
 import ExcelJs from 'exceljs';
+import nodemailer from 'nodemailer';
 
 const app = express();
 app.use(cookieParser());
 
 app.use(cors());
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 app.get('/', (req, res) => {
     res.send('API is running');
+});
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { 
+        user:process.env.EMAIL_USER,
+        pass:process.env.NODE_MAILER_USER,
+    },
+});
+
+app.post('/api/send-email/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const patient = await User.findById(id);
+    console.log('Patient:', patient);
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    if (!patient.email || !patient.newPrescription?.length) {
+      return res.status(400).json({ message: 'Missing email or prescriptions' });
+    }
+
+    const prescriptionList = patient.newPrescription.map((p, i) => `
+      <h4>Prescription ${i + 1}</h4>
+      <ul>
+        <li><strong>Tablet:</strong> ${p.tablets}</li>
+        <li><strong>Dosage:</strong> ${p.dosage}</li>
+        <li><strong>Duration:</strong> ${p.duration}</li>
+        <li><strong>Date:</strong> ${new Date(p.date).toLocaleDateString()}</li>
+      </ul>
+    `).join('<hr>');
+
+    const mailOptions = {
+      from: `"Ekaveera Healthcare" <${process.env.EMAIL_USER}>`,
+      to: patient.email,
+      subject: 'Your Prescription Details',
+      html: `
+        <p>Dear ${patient.name},</p>
+        <p>Here is your prescription:</p>
+        ${prescriptionList}
+        <p>Regards,<br/>Vignan Healthcare Team</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Email sent successfully' });
+
+  } catch (error) {
+    console.error('Email Error:', error);
+    res.status(500).json({ message: 'Failed to send email' });
+  }
 });
 
 app.get('/api/userDetails',async(req,res)=>
